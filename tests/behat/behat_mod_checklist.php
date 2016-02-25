@@ -36,6 +36,32 @@ require_once(__DIR__ . '/../../../../lib/behat/behat_base.php');
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class behat_mod_checklist extends behat_base {
+    /**
+     * Get a cm_info and course object for the specified course_module record.
+     *
+     * A partial backport of modinfolib's corresponding function for Moodle
+     * versions prior to 2.8.
+     *
+     * @param stdClass $instance DML record representing module instance
+     * @param string $modulename Module name
+     * @return array Array with 2 elements $course and $cm
+     * @throws moodle_exception If the item doesn't exist or is of wrong module name
+     */
+    protected static function get_course_and_cm_from_instance($instance, $modulename) {
+        if (function_exists('get_course_and_cm_from_instance')) {
+            return get_course_and_cm_from_instance($instance, $modulename);
+        } else {
+            if (!core_component::is_valid_plugin_name('mod', $modulename)) {
+                throw new coding_exception('Invalid modulename parameter');
+            }
+
+            $course = get_course($instance->course);
+            $modinfo = get_fast_modinfo($course);
+            $instances = $modinfo->get_instances_of($modulename);
+
+            return array($course, $instances[$instance->id]);
+        }
+    }
 
     /**
      * View the calendar for a specific course + date
@@ -92,7 +118,7 @@ class behat_mod_checklist extends behat_base {
 
         // Add each of the items to the checklist.
         $checklist = $DB->get_record('checklist', array('name' => $checklistname), '*', MUST_EXIST);
-        list($course, $cm) = get_course_and_cm_from_instance($checklist, 'checklist');
+        list($course, $cm) = self::get_course_and_cm_from_instance($checklist, 'checklist');
         $chk = new checklist_class($cm->id, 0, $checklist, $cm, $course);
 
         foreach ($data as $row) {
@@ -175,7 +201,7 @@ class behat_mod_checklist extends behat_base {
 
         // Get the checklist data.
         $checklist = $DB->get_record('checklist', array('name' => $checklistname), '*', MUST_EXIST);
-        list($course, $cm) = get_course_and_cm_from_instance($checklist, 'checklist');
+        list($course, $cm) = self::get_course_and_cm_from_instance($checklist, 'checklist');
         $userid = $DB->get_field('user', 'id', array('username' => $username), MUST_EXIST);
         $chk = new checklist_class($cm->id, $userid, $checklist, $cm, $course);
 
